@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QDebug>
 #include <QPainter>
+#include <QParallelAnimationGroup>
 #include <QPropertyAnimation>
 #include <QtMath>
 
@@ -14,7 +15,7 @@ BoardScene::BoardScene(BoardModel *boardModel, QObject *parent) :
     Q_ASSERT(boardModel);
     this->boardModel = boardModel;
     this->_pieceImages = nullptr;
-    this->itemMoveAnimation = this->itemFlashAnimation = nullptr;
+    this->itemMoveAnimation = this->itemFlashAnimation = this->checkMoveAnimation = nullptr;
     this->doAnimation = true;
     this->suspendAnimation = false;
 
@@ -22,6 +23,7 @@ BoardScene::BoardScene(BoardModel *boardModel, QObject *parent) :
     connect(boardModel, &BoardModel::pieceAdded, this, &BoardScene::addPiece);
     connect(boardModel, &BoardModel::pieceRemoved, this, &BoardScene::removePiece);
     connect(boardModel, &BoardModel::pieceMoved, this, &BoardScene::movePiece);
+    connect(boardModel, &BoardModel::showCheck, this, &BoardScene::showCheck);
     connect(boardModel, &BoardModel::modelReset, this, &BoardScene::resetFromModel);
 }
 
@@ -61,7 +63,7 @@ void BoardScene::changePiecesColour(Piece::PieceColour player, const QColor &new
 void BoardScene::terminateAnimation(QPropertyAnimation *&itemAnimation)
 {
     // terminate an animation (which might be) in progress
-    // note that this does so "abrubtly", it does not "finish" the animatuon so items do not reach their final state
+    // note that this does so "abrubtly", it does not "finish" the animation so items do not reach their final state
     if (itemAnimation)
     {
         if (itemAnimation->state() != QAbstractAnimation::Stopped)
@@ -76,6 +78,7 @@ void BoardScene::terminateAllAnimations()
     // terminate all animations (which might be) in progress
     terminateAnimation(itemMoveAnimation);
     terminateAnimation(itemFlashAnimation);
+    terminateAnimation(checkMoveAnimation);
 }
 
 
@@ -94,7 +97,7 @@ void BoardScene::animateAddPiece(BoardPiecePixmapItem *item)
     itemFlashAnimation = new QPropertyAnimation(item, "flash", this);
     itemFlashAnimation->setStartValue(item->flashLevelMax);
     itemFlashAnimation->setEndValue(0);
-    itemFlashAnimation->setDuration(1000);
+    itemFlashAnimation->setDuration(500);
     itemFlashAnimation->setLoopCount(3);
     connect(itemFlashAnimation, &QPropertyAnimation::stateChanged,
             this, [=](QAbstractAnimation::State newState, QAbstractAnimation::State oldState) {
@@ -122,6 +125,8 @@ void BoardScene::animateRemovePiece(BoardPiecePixmapItem *item)
     // only one flash animation allowed at a time
     terminateAnimation(itemFlashAnimation);
     Q_ASSERT(itemFlashAnimation == nullptr);
+    terminateAnimation(checkMoveAnimation);
+    Q_ASSERT(checkMoveAnimation == nullptr);
     // set off an animated move calling `item->setPos()`
     itemFlashAnimation = new QPropertyAnimation(item, "flash", this);
     itemFlashAnimation->setStartValue(item->flashLevelMax);
@@ -153,6 +158,8 @@ void BoardScene::animateMovePiece(BoardPiecePixmapItem *item, const QPointF &sta
     // only one move animation allowed at a time
     terminateAnimation(itemMoveAnimation);
     Q_ASSERT(itemMoveAnimation == nullptr);
+    terminateAnimation(checkMoveAnimation);
+    Q_ASSERT(checkMoveAnimation == nullptr);
     // set off an animated move calling `item->setPos()`
     itemMoveAnimation = new QPropertyAnimation(item, "pos", this);
     itemMoveAnimation->setStartValue(startPos);
@@ -169,6 +176,44 @@ void BoardScene::animateMovePiece(BoardPiecePixmapItem *item, const QPointF &sta
             item->setPos(endPos);
     } );
     itemMoveAnimation->start();
+}
+
+void BoardScene::animateShowCheck(const QPointF &startPos, const QPointF &endPos)
+{
+    if (!doAnimation || suspendAnimation)
+        return;
+    // only one move animation allowed at a time
+    terminateAnimation(checkMoveAnimation);
+    Q_ASSERT(checkMoveAnimation == nullptr);
+    // set off an animated move calling `item->setPos()`
+    BoardSquareRectItem *item = new BoardSquareRectItem;
+    item->setRect(0, 0, 100, 100);
+    item->setPen(QPen(Qt::red, 4));
+    checkMoveAnimation = new QPropertyAnimation(item, "pos", this);
+    // delete new'ed item when delete checkMoveAnimation, however that occurs
+    item->setParent(checkMoveAnimation);
+    checkMoveAnimation->setStartValue(startPos);
+    checkMoveAnimation->setEndValue(endPos);
+    // calculate the duration based on the distance (longer moves take longer animation time)
+    double xDist(endPos.x() - startPos.x()), yDist(endPos.y() - startPos.y());
+    double distance = (xDist != 0 || yDist != 0) ? qSqrt(xDist * xDist + yDist * yDist) : 0;
+    checkMoveAnimation->setDuration(distance / 400 * 1000 + 200);
+    connect(checkMoveAnimation, &QPropertyAnimation::stateChanged,
+            this, [=](QAbstractAnimation::State newState, QAbstractAnimation::State oldState) {
+        Q_UNUSED(oldState);
+        // when animation starts, add item to scene
+        if (newState == QAbstractAnimation::Running && oldState == QAbstractAnimation::Stopped)
+            addItem(item);
+        // when animation finishes or is stopped, remove item from scene and delete
+        if (newState == QAbstractAnimation::Stopped)
+            removeItem(item);
+    } );
+    // if a piece move animation is running chain this animation so it starts when that finishes
+    // else start it immediately
+    if (itemMoveAnimation && itemMoveAnimation->state() != QAbstractAnimation::Stopped)
+        connect(itemMoveAnimation, &QPropertyAnimation::finished, checkMoveAnimation, [this]() { checkMoveAnimation->start(); } );
+    else
+        checkMoveAnimation->start();
 }
 
 /*slot*/ void BoardScene::addPiece(int row, int col, const Piece *piece)
@@ -215,6 +260,17 @@ void BoardScene::animateMovePiece(BoardPiecePixmapItem *item, const QPointF &sta
 
     // animate the move
     animateMovePiece(item, item->pos(), QPointF(x, y));
+}
+
+/*slot*/ void BoardScene::showCheck(int fromRow, int fromCol, int toRow, int toCol)
+{
+    // calculate screne positions
+    int startX, startY, endX, endY;
+    rowColToScenePos(fromRow, fromCol, startX, startY);
+    rowColToScenePos(toRow, toCol, endX, endY);
+
+    // animate the check
+    animateShowCheck(QPointF(startX, startY), QPointF(endX, endY));
 }
 
 /*slot*/ void BoardScene::resetFromModel()

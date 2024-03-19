@@ -56,10 +56,12 @@ public:
 
 private:
     bool obstructedMoveFromTo(const BoardSquare &squareFrom, const BoardSquare &squareTo) const;
+    bool checkForCheck(BoardModel::BoardSquare &from, BoardModel::BoardSquare &to) const;
     void clearBoardPieces(bool dontDelete = false);
     void addPiece(int row, int col, Piece::PieceColour colour, Piece::PieceName name);
     void removePiece(int row, int col);
     void movePiece(int rowFrom, int colFrom, int rowTo, int colTo);
+    void checkForCheckAnimation();
     void setupInitialPieces();
 
 public slots:
@@ -71,6 +73,7 @@ signals:
     void pieceAdded(int row, int col, const Piece *);
     void pieceRemoved(const Piece *);
     void pieceMoved(int row, int col, const Piece *);
+    void showCheck(int fromRow, int fromCol, int toRow, int toCol);
     void lastMoveMade(const QString &moveText);
     void undoStackCleanChanged(bool clean);
     void parserMessage(const QString &msg);

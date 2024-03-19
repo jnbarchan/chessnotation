@@ -200,6 +200,32 @@ bool BoardModel::couldMoveFromTo(const BoardSquare &squareFrom, const BoardSquar
     return couldMoveFromTo(*piece, squareFrom, squareTo, capture, enpassant);
 }
 
+bool BoardModel::checkForCheck(BoardModel::BoardSquare &from, BoardModel::BoardSquare &to) const
+{
+    // see whether the opposing King is in check from any of player's pieces
+    // if so, set `from` & `to` to the piece giving check and the opposing King receiving check
+    Piece::PieceColour player = _moveHistoryModel->playerToMove();
+    QList<BoardModel::BoardSquare> squaresOpposingKing(findPieces(Piece::opposingColour(player), Piece::King));
+    if (squaresOpposingKing.length() != 1)
+        return false;
+    BoardModel::BoardSquare squareTo(squaresOpposingKing.at(0));
+    // go through all player's pieces seeing if any of them could capture opposing King
+    const Piece *piece;
+    for (int row = 0; row < 8; row++)
+        for (int col = 0; col < 8; col++)
+        {
+            BoardModel::BoardSquare squareFrom(row, col);
+            if ((piece = pieceAt(squareFrom)) && piece->colour == player)
+                if (couldMoveFromTo(squareFrom, squareTo, true, false))
+                {
+                    from = squareFrom;
+                    to = squareTo;
+                    return true;
+                }
+        }
+    return false;
+}
+
 void BoardModel::clearBoardPieces(bool dontDelete /*= false*/)
 {
     for (int row = 0; row < 8; row++)
@@ -239,6 +265,16 @@ void BoardModel::movePiece(int rowFrom, int colFrom, int rowTo, int colTo)
     boardPieces[rowTo][colTo] = piece;
     if (!modelBeingReset)
         emit pieceMoved(rowTo, colTo, piece);
+}
+
+void BoardModel::checkForCheckAnimation()
+{
+    if (modelBeingReset)
+        return;
+    // see if currently "in check" for animation
+    BoardModel::BoardSquare from, to;
+    if (checkForCheck(from, to))
+        emit showCheck(from.row, from.col, to.row, to.col);
 }
 
 void BoardModel::setupInitialPieces()
@@ -344,6 +380,8 @@ void BoardModel::doUndoableMoveCommand(const MoveUndoCommand &command)
             movePiece(move.from.row, move.from.col, move.to.row, move.to.col);
             break;
         }
+    // see if currently "in check" for animation
+    checkForCheckAnimation();
 
     // append the move to the history
     _moveHistoryModel->appendMove(command.player(), command.moveText());
@@ -382,6 +420,8 @@ void BoardModel::undoUndoableMoveCommand(const MoveUndoCommand &command)
             break;
         }
     }
+    // see if currently "in check" for animation
+    checkForCheckAnimation();
 }
 
 void BoardModel::undoStackSetClean()

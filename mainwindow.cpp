@@ -54,10 +54,22 @@ MainWindow::~MainWindow()
 {
 }
 
-const QString MainWindow::appRootPath() const
+const QString MainWindow::appRootPath()
 {
     // root directory for locating images/sample game files
-    return QDir::homePath() + "/QtTests/chess";
+    if (_appRootPath.isEmpty())
+    {
+        // look relative to where the *executable* directory is
+        // if that is the right directory return that (i.e. application has been deployed)
+        // if not assume it is the development "build" directory and return "../chessnotation" from there
+        QDir dir(QCoreApplication::applicationDirPath());
+        if (dir.exists("images") && dir.exists("samplegames"))
+            _appRootPath = dir.absolutePath();
+        else if (dir.cd("../chessnotation"))
+            if (dir.exists("images") && dir.exists("samplegames"))
+                _appRootPath = dir.absolutePath();
+    }
+    return _appRootPath;
 }
 
 void MainWindow::setupUi()
@@ -352,13 +364,13 @@ void OpenedGameRunner::setupUi()
 {
     // setup the "Play Opened Game" submenu
     QStyle &style(*runMenu->style());
+    restartAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaSkipBackward), "Restart", this, &OpenedGameRunner::actionRestart);
     stepAction = runMenu->addAction(style.standardIcon(QStyle::SP_ArrowForward), "Step", this, &OpenedGameRunner::actionStep, Qt::Key_Return);
     runPauseAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaPlay), "Run", this, &OpenedGameRunner::actionRunPause, Qt::Key_Space);
     runToEndAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaSkipForward), "Run to End", this, &OpenedGameRunner::actionRunToEnd);
-    restartAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaSkipBackward), "Restart", this, &OpenedGameRunner::actionRestart);
     // and the corresponding buttons in `runButtonsFrame`
     runButtonsFrame->setLayout(new QHBoxLayout);
-    for (QAction *action : { stepAction, runPauseAction, runToEndAction, restartAction } )
+    for (QAction *action : { restartAction, stepAction, runPauseAction, runToEndAction } )
     {
         QToolButton *btn = new QToolButton();
         btn->setMinimumWidth(30);
@@ -441,6 +453,14 @@ bool OpenedGameRunner::doStepOneMove()
     updateMenuEnablement();
 }
 
+/*slot*/ void OpenedGameRunner::actionRestart()
+{
+    runStepTimer.stop();
+    boardModel->newGame();
+    currentTokenIndex = 0;
+    updateMenuEnablement();
+}
+
 /*slot*/ void OpenedGameRunner::actionStep()
 {
     // emit the `stepOneMove()` signal
@@ -472,13 +492,5 @@ bool OpenedGameRunner::doStepOneMove()
     while (currentTokenIndex < allTokens.count())
         if (!doStepOneMove())
             break;
-    updateMenuEnablement();
-}
-
-/*slot*/ void OpenedGameRunner::actionRestart()
-{
-    runStepTimer.stop();
-    boardModel->newGame();
-    currentTokenIndex = 0;
     updateMenuEnablement();
 }

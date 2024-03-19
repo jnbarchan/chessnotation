@@ -38,7 +38,8 @@ private:
     QFrame *runButtonsFrame;
     QAction *undoAction, *redoAction;
     OpenedGameRunner *openedGameRunner;
-    const QString appRootPath() const;
+    QString _appRootPath;
+    const QString appRootPath();
     void setupUi();
     void setEnterMoveError(bool error);
     void setEnterMovePosition(Piece::PieceColour player);
@@ -74,7 +75,7 @@ private:
     BoardModel *boardModel;
     QMenu *runMenu;
     QFrame *runButtonsFrame;
-    QAction *stepAction, *runPauseAction, *runToEndAction, *restartAction;
+    QAction *restartAction, *stepAction, *runPauseAction, *runToEndAction;
     QStringList allTokens;
     int currentTokenIndex;
     QTimer runStepTimer;
@@ -86,10 +87,10 @@ public slots:
 
 private slots:
     void updateMenuEnablement();
+    void actionRestart();
     void actionStep();
     void actionRunPause();
     void actionRunToEnd();
-    void actionRestart();
 
 signals:
     void stepOneMove(const QString &token);

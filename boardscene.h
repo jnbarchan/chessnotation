@@ -25,6 +25,12 @@ private:
     int _flashLevel = 0;
 };
 
+class BoardSquareRectItem : public QObject, public QGraphicsRectItem
+{
+    Q_OBJECT
+    Q_PROPERTY(QPointF pos READ pos WRITE setPos)
+};
+
 class BoardScene : public QGraphicsScene
 {
     Q_OBJECT
@@ -42,18 +48,20 @@ public slots:
     void addPiece(int row, int col, const Piece *piece);
     void removePiece(const Piece *piece);
     void movePiece(int row, int col, const Piece *piece);
+    void showCheck(int fromRow, int fromCol, int toRow, int toCol);
     void resetFromModel();
 
 private:
     BoardModel *boardModel;
     PieceImages *_pieceImages;
-    QPropertyAnimation *itemMoveAnimation, *itemFlashAnimation;
+    QPropertyAnimation *itemMoveAnimation, *itemFlashAnimation, *checkMoveAnimation;
     bool doAnimation, suspendAnimation;
     void terminateAnimation(QPropertyAnimation *&itemAnimation);
     void terminateAllAnimations();
     void animateAddPiece(BoardPiecePixmapItem *item);
     void animateRemovePiece(BoardPiecePixmapItem *item);
     void animateMovePiece(BoardPiecePixmapItem *item, const QPointF &startPos, const QPointF &endPos);
+    void animateShowCheck(const QPointF &startPos, const QPointF &endPos);
     void redrawAllPieces();
     BoardPiecePixmapItem *findItemForPiece(const Piece *piece) const;
     void rowColToScenePos(int row, int col, int &x, int &y) const;
