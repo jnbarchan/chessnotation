@@ -1,2 +1,2 @@
 # chessnotation
-Chess move parser for "desvriptive notation"
+Chess move parser for "descriptive notation"
