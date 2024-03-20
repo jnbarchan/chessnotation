@@ -48,5 +48,10 @@ DISTFILES += \
     images/piece_set_0/white_pawn.png \
     images/piece_set_0/white_queen.png \
     images/piece_set_0/white_rook.png \
+    samplegames/badgame \
+    samplegames/checkgame \
     samplegames/chernev1 \
-    samplegames/game1
+    samplegames/chernev2 \
+    samplegames/chernev46 \
+    samplegames/game1 \
+    samplegames/game2

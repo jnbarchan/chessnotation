@@ -366,11 +366,13 @@ void OpenedGameRunner::setupUi()
     QStyle &style(*runMenu->style());
     restartAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaSkipBackward), "Restart", this, &OpenedGameRunner::actionRestart);
     stepAction = runMenu->addAction(style.standardIcon(QStyle::SP_ArrowForward), "Step", this, &OpenedGameRunner::actionStep, Qt::Key_Return);
+    stepAction->setShortcutContext(Qt::WidgetShortcut);
     runPauseAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaPlay), "Run", this, &OpenedGameRunner::actionRunPause, Qt::Key_Space);
     runToEndAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaSkipForward), "Run to End", this, &OpenedGameRunner::actionRunToEnd);
+    returnToReachedAction = runMenu->addAction("Return to Reached", this, &OpenedGameRunner::actionReturnToReached);
     // and the corresponding buttons in `runButtonsFrame`
     runButtonsFrame->setLayout(new QHBoxLayout);
-    for (QAction *action : { restartAction, stepAction, runPauseAction, runToEndAction } )
+    for (QAction *action : { restartAction, stepAction, runPauseAction, runToEndAction, /*returnToReachedAction*/ } )
     {
         QToolButton *btn = new QToolButton();
         btn->setMinimumWidth(30);
@@ -393,6 +395,7 @@ void OpenedGameRunner::setupUi()
     stepAction->setEnabled(canContinue);
     runPauseAction->setEnabled(canContinue);
     runToEndAction->setEnabled(canContinue);
+    returnToReachedAction->setEnabled(!atEnd && !isClean);
 }
 
 void OpenedGameRunner::readFile(QTextStream &ts)
@@ -492,5 +495,14 @@ bool OpenedGameRunner::doStepOneMove()
     while (currentTokenIndex < allTokens.count())
         if (!doStepOneMove())
             break;
+    updateMenuEnablement();
+}
+
+/*slot*/ void OpenedGameRunner::actionReturnToReached()
+{
+    // return to where user had reached in the opened game
+    // this could be redoing moves which have been undone, or undoing new moves typed in by user
+    runStepTimer.stop();
+    boardModel->undoStackRestoreToClean();
     updateMenuEnablement();
 }

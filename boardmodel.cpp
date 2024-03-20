@@ -237,10 +237,10 @@ void BoardModel::clearBoardPieces(bool dontDelete /*= false*/)
         }
 }
 
-void BoardModel::addPiece(int row, int col, Piece::PieceColour colour, Piece::PieceName name)
+void BoardModel::addPiece(int row, int col, Piece::PieceColour colour, Piece::PieceName name, Piece::SideQualifier side /*= Piece::NoSide*/)
 {
     Q_ASSERT(boardPieces[row][col] == nullptr);
-    Piece *piece = new Piece(colour, name);
+    Piece *piece = new Piece(colour, name, side);
     boardPieces[row][col] = piece;
     if (!modelBeingReset)
         emit pieceAdded(row, col, piece);
@@ -289,14 +289,14 @@ void BoardModel::setupInitialPieces()
         Piece::PieceColour colour(static_cast<Piece::PieceColour>(player));
         bool isWhite = (colour == Piece::White);
         int row = isWhite ? 0 : 7;
-        addPiece(row, 0, colour, Piece::Rook);
-        addPiece(row, 1, colour, Piece::Knight);
-        addPiece(row, 2, colour, Piece::Bishop);
+        addPiece(row, 0, colour, Piece::Rook, Piece::QueenSide);
+        addPiece(row, 1, colour, Piece::Knight, Piece::QueenSide);
+        addPiece(row, 2, colour, Piece::Bishop, Piece::QueenSide);
         addPiece(row, 3, colour, Piece::Queen);
         addPiece(row, 4, colour, Piece::King);
-        addPiece(row, 5, colour, Piece::Bishop);
-        addPiece(row, 6, colour, Piece::Knight);
-        addPiece(row, 7, colour, Piece::Rook);
+        addPiece(row, 5, colour, Piece::Bishop, Piece::KingSide);
+        addPiece(row, 6, colour, Piece::Knight, Piece::KingSide);
+        addPiece(row, 7, colour, Piece::Rook, Piece::KingSide);
         row = isWhite ? 1 : 6;
         for (int col = 0; col < 8; col++)
             addPiece(row, col, colour, Piece::Pawn);
@@ -436,11 +436,20 @@ void BoardModel::undoStackSetClean()
 bool BoardModel::undoStackIsClean() const
 {
     // return whether the undoStack is currently "clean"
-    // this tells us whether nay moves have been undone and either
-    // (a) they have not been redone; or
+    // this tells us whether
+    // (a) any moves have been undone and have not been redone; or
     // (b) some other move(s) have been "manually"
     // either way if unclean this means we cannot afford to continue stepping through `OpenedGameRunner`
     return undoMovesStack.isClean();
+}
+
+void BoardModel::undoStackRestoreToClean()
+{
+    // restore the undoStack to currently be "clean"
+    // this repeatedly calls `undo()` or `redo()` until the stack reaches the clean state
+    int cleanIndex = undoMovesStack.cleanIndex();
+    if (cleanIndex >= 0)
+        undoMovesStack.setIndex(cleanIndex);
 }
 
 void BoardModel::saveMoveHistory(QTextStream &ts, bool insertTurnNumber /*= true*/) const
@@ -480,25 +489,25 @@ bool MoveParser::parsePieceName(QString text, Piece::PieceName &name) const
     return true;
 }
 
-bool MoveParser::parsePieceNameAndSide(QString text, Piece::PieceName &name, SideQualifier &side) const
+bool MoveParser::parsePieceNameAndSide(QString text, Piece::PieceName &name, Piece::SideQualifier &side) const
 {
     // parse a piece name with optional side qualifier, like "K" or "KB"
     // return true => successfully parsed, and `name` filled in for piece and `side` for side qualifier
     // return false => failed to parse
     text = text.toUpper();
 
-    side = NoSide;
+    side = Piece::NoSide;
     if (text.length() > 1 && text[1].isLetter())
     {
         // could be side qualifier like "KB"
         if (text[0] == 'Q')
         {
-            side = QueenSide;
+            side = Piece::QueenSide;
             text = text.remove(0, 1);
         }
         else if (text[0] == 'K' && text[1] != 'T')
         {
-            side = KingSide;
+            side = Piece::KingSide;
             text = text.remove(0, 1);
         }
     }
@@ -507,13 +516,13 @@ bool MoveParser::parsePieceNameAndSide(QString text, Piece::PieceName &name, Sid
         return false;
 
     // cannot have "KK" or "QK"
-    if (side != NoSide)
+    if (side != Piece::NoSide)
         if (name == Piece::King || name == Piece::Queen)
             return false;
     return true;
 }
 
-QList<int> MoveParser::columnsForPieceAndSide(Piece::PieceName name, SideQualifier side) const
+QList<int> MoveParser::columnsForPieceAndSide(Piece::PieceName name, Piece::SideQualifier side) const
 {
     // return the list of columns which a piece-and-side could refer to, like "R", "KR" or "QBP"
     QList<int> cols;
@@ -523,23 +532,23 @@ QList<int> MoveParser::columnsForPieceAndSide(Piece::PieceName name, SideQualifi
         cols << 3;
     else if (name == Piece::Bishop)
     {
-        if (side != QueenSide)
+        if (side != Piece::QueenSide)
             cols << 5;
-        if (side != KingSide)
+        if (side != Piece::KingSide)
             cols << 2;
     }
     else if (name == Piece::Knight)
     {
-        if (side != QueenSide)
+        if (side != Piece::QueenSide)
             cols << 6;
-        if (side != KingSide)
+        if (side != Piece::KingSide)
             cols << 1;
     }
     else if (name == Piece::Rook)
     {
-        if (side != QueenSide)
+        if (side != Piece::QueenSide)
             cols << 7;
-        if (side != KingSide)
+        if (side != Piece::KingSide)
             cols << 0;
     }
     return cols;
@@ -929,7 +938,7 @@ bool MoveParser::parsePiecePreQualifier(const QString &qualifier, Piece::PieceNa
     // `name` is the piece being qualified
     // `squares` is all the squares the piece could be on, reduce this to satisfy the qualifier
     Piece::PieceName columnName;
-    SideQualifier side;
+    Piece::SideQualifier side;
     if (!parsePieceNameAndSide(qualifier, columnName, side))
         return false;
     if (name == Piece::Pawn)
@@ -943,7 +952,7 @@ bool MoveParser::parsePiecePreQualifier(const QString &qualifier, Piece::PieceNa
         // there is a debate about whether "KP" should mean
         // (a) pawn which started on King's column, or
         // (b) pawn which is presently situated on King's column
-        // we take the latter interpretation
+        // we take the latter interpretation (actually for pawns this is probably the only correct one)
         for (int i = squares.length() - 1; i >= 0; i--)
             if (!cols.contains(squares[i].col))
                 squares.removeAt(i);
@@ -953,22 +962,23 @@ bool MoveParser::parsePiecePreQualifier(const QString &qualifier, Piece::PieceNa
         // if piece is not a pawn only "K" or "Q" is allowed
         if (name == Piece::King || name == Piece::Queen)    // "K"/"Q" cannot have any qualifier
             return false;
-        if (side != NoSide)    // "QB" not allowed for non-pawn
+        if (side != Piece::NoSide)    // "QB" not allowed for non-pawn
             return false;
         // set `side` from `columnName`
         if (columnName == Piece::King)
-            side = KingSide;
+            side = Piece::KingSide;
         else if (columnName == Piece::Queen)
-            side = QueenSide;
+            side = Piece::QueenSide;
         else
             return false;
-        // only accept pieces currently located on the K/Q side
+        // only accept pieces which started on the K/Q side
         // there is a debate about whether "KR" should mean
         // (a) rook which started on King's side, or
         // (b) rook which is presently situated on the King's side
-        // we take the latter interpretation
+        // we take the former interpretation
+        Piece *piece;
         for (int i = squares.length() - 1; i >= 0; i--)
-            if ((side == KingSide) ? squares[i].col < 4 : squares[i].col > 3)
+            if ((piece = model->pieceAt(squares[i])) != nullptr && piece->side != side)
                 squares.removeAt(i);
     }
     return true;
@@ -1032,7 +1042,7 @@ bool MoveParser::parseSquareSpecifier(const QString &specifier, int &row, QList<
     if (!squareSpecifier.isEmpty())
     {
         Piece::PieceName columnName;
-        SideQualifier side;
+        Piece::SideQualifier side;
         if (!parsePieceNameAndSide(squareSpecifier, columnName, side))
             return false;
         // cannot have "P" for column

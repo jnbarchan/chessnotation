@@ -52,13 +52,14 @@ public:
     void undoUndoableMoveCommand(const MoveUndoCommand &command);
     void undoStackSetClean();
     bool undoStackIsClean() const;
+    void undoStackRestoreToClean();
     void saveMoveHistory(QTextStream &ts, bool insertTurnNumber = true) const;
 
 private:
     bool obstructedMoveFromTo(const BoardSquare &squareFrom, const BoardSquare &squareTo) const;
     bool checkForCheck(BoardModel::BoardSquare &from, BoardModel::BoardSquare &to) const;
     void clearBoardPieces(bool dontDelete = false);
-    void addPiece(int row, int col, Piece::PieceColour colour, Piece::PieceName name);
+    void addPiece(int row, int col, Piece::PieceColour colour, Piece::PieceName name, Piece::SideQualifier side = Piece::NoSide);
     void removePiece(int row, int col);
     void movePiece(int rowFrom, int colFrom, int rowTo, int colTo);
     void checkForCheckAnimation();
@@ -100,10 +101,9 @@ public:
 private:
     const BoardModel *model;
     Piece::PieceColour player;
-    enum SideQualifier { NoSide, KingSide, QueenSide };
     bool parsePieceName(QString text, Piece::PieceName &name) const;
-    bool parsePieceNameAndSide(QString text, Piece::PieceName &name, SideQualifier &side) const;
-    QList<int> columnsForPieceAndSide(Piece::PieceName name, SideQualifier side) const;
+    bool parsePieceNameAndSide(QString text, Piece::PieceName &name, Piece::SideQualifier &side) const;
+    QList<int> columnsForPieceAndSide(Piece::PieceName name, Piece::SideQualifier side) const;
     bool parseCastlingMove(const QString &text, const QStringList &tokens, QList<ParsedMove> &moves) const;
     bool parseMoveToMove(const QString &text, const QString &lhs, const QString &rhs, QList<ParsedMove> &moves) const;
     bool parseCaptureMove(const QString &text, const QString &lhs, const QString &rhs, QList<ParsedMove> &moves) const;

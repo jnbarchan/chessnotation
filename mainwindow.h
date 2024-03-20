@@ -75,7 +75,7 @@ private:
     BoardModel *boardModel;
     QMenu *runMenu;
     QFrame *runButtonsFrame;
-    QAction *restartAction, *stepAction, *runPauseAction, *runToEndAction;
+    QAction *restartAction, *stepAction, *runPauseAction, *runToEndAction, *returnToReachedAction;
     QStringList allTokens;
     int currentTokenIndex;
     QTimer runStepTimer;
@@ -91,6 +91,7 @@ private slots:
     void actionStep();
     void actionRunPause();
     void actionRunToEnd();
+    void actionReturnToReached();
 
 signals:
     void stepOneMove(const QString &token);
