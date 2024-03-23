@@ -1,6 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include <QLineEdit>
 #include <QMainWindow>
 #include <QTextStream>
 #include <QTimer>
@@ -8,7 +9,6 @@
 class QFrame;
 class QHBoxLayout;
 class QLabel;
-class QLineEdit;
 class QSpacerItem;
 class QTableView;
 
@@ -16,6 +16,7 @@ class QTableView;
 
 class BoardModel;
 class BoardScene;
+class EnterMoveLineEdit;
 class OpenedGameRunner;
 
 class MainWindow : public QMainWindow
@@ -31,7 +32,7 @@ private:
     BoardScene *boardScene;
     QTableView *moveHistoryView;
     QHBoxLayout *hblytEnterMove;
-    QLineEdit *leEnterMove;
+    EnterMoveLineEdit *leEnterMove;
     QSpacerItem *spcrRightEnterMove;
     QLabel *lblParserMessage;
     QMenu *mainMenu, *runMenu;
@@ -57,6 +58,12 @@ private slots:
     void boardModelStartedNewGame();
     void moveEntered();
     void moveMade(const QString &text);
+};
+
+
+class EnterMoveLineEdit : public QLineEdit
+{
+    virtual bool event(QEvent *e) override;
 };
 
 

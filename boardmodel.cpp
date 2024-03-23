@@ -11,7 +11,7 @@ BoardModel::BoardModel(QObject *parent) :
     modelBeingReset = false;
     clearBoardPieces(true);
 
-    connect(&undoMovesStack, &QUndoStack::cleanChanged, this, &BoardModel::undoStackCleanChanged);
+    connect(&undoMovesStack, &QUndoStack::indexChanged, this, &BoardModel::undoStackIndexChanged);
 }
 
 BoardModel::~BoardModel()
@@ -450,6 +450,12 @@ void BoardModel::undoStackRestoreToClean()
     int cleanIndex = undoMovesStack.cleanIndex();
     if (cleanIndex >= 0)
         undoMovesStack.setIndex(cleanIndex);
+}
+
+bool BoardModel::undoStackCanRestoreToClean() const
+{
+    // return whether the undoStack can restore to a "clean" state, i.e. `undoStackRestoreToClean()` can be called
+    return (undoMovesStack.cleanIndex() >= 0 && !undoMovesStack.isClean());
 }
 
 void BoardModel::saveMoveHistory(QTextStream &ts, bool insertTurnNumber /*= true*/) const

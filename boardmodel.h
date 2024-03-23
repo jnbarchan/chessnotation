@@ -53,6 +53,7 @@ public:
     void undoStackSetClean();
     bool undoStackIsClean() const;
     void undoStackRestoreToClean();
+    bool undoStackCanRestoreToClean() const;
     void saveMoveHistory(QTextStream &ts, bool insertTurnNumber = true) const;
 
 private:
@@ -76,7 +77,7 @@ signals:
     void pieceMoved(int row, int col, const Piece *);
     void showCheck(int fromRow, int fromCol, int toRow, int toCol);
     void lastMoveMade(const QString &moveText);
-    void undoStackCleanChanged(bool clean);
+    void undoStackIndexChanged(bool clean);
     void parserMessage(const QString &msg);
 };
 

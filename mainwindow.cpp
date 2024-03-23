@@ -5,6 +5,7 @@
 #include <QFileDialog>
 #include <QFrame>
 #include <QHeaderView>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
@@ -159,7 +160,7 @@ void MainWindow::setupUi()
     this->hblytEnterMove = new QHBoxLayout(move);
     QLabel *label = new QLabel("Move:");
     hblytEnterMove->addWidget(label);
-    this->leEnterMove = new QLineEdit;
+    this->leEnterMove = new EnterMoveLineEdit;
     leEnterMove->setFixedWidth(100);
     hblytEnterMove->addWidget(leEnterMove);
     this->spcrRightEnterMove = new QSpacerItem(1, 1, QSizePolicy::Expanding);
@@ -346,6 +347,23 @@ void MainWindow::boardModelStartedNewGame()
 }
 
 
+/*virtual*/ bool EnterMoveLineEdit::event(QEvent *e) /*override*/
+{
+    // the enter move line edit needs to ensure **Return** gets to it (for `returnPressed()` signal)
+    // but because **Return** is used a shortcut when move-stepping is active that would go there
+    // so we handle `ShortcutOverride` event to forbid that being propagated away from this line edit
+    if (e->type() == QEvent::ShortcutOverride)
+    {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(e);
+        if (keyEvent->key() == Qt::Key_Return)
+        {
+            e->accept();
+            return true;
+        }
+    }
+    return QLineEdit::event(e);
+}
+
 
 OpenedGameRunner::OpenedGameRunner(QMenu *runMenu, QFrame *runButtonsFrame, BoardModel *boardModel, QWidget *parent)
     : QObject(parent)
@@ -356,7 +374,7 @@ OpenedGameRunner::OpenedGameRunner(QMenu *runMenu, QFrame *runButtonsFrame, Boar
 
     setupUi();
 
-    connect(boardModel, &BoardModel::undoStackCleanChanged, this, &OpenedGameRunner::updateMenuEnablement);
+    connect(boardModel, &BoardModel::undoStackIndexChanged, this, &OpenedGameRunner::updateMenuEnablement);
     connect(&runStepTimer, &QTimer::timeout, this, &OpenedGameRunner::actionStep);
 }
 
@@ -366,7 +384,6 @@ void OpenedGameRunner::setupUi()
     QStyle &style(*runMenu->style());
     restartAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaSkipBackward), "Restart", this, &OpenedGameRunner::actionRestart);
     stepAction = runMenu->addAction(style.standardIcon(QStyle::SP_ArrowForward), "Step", this, &OpenedGameRunner::actionStep, Qt::Key_Return);
-    stepAction->setShortcutContext(Qt::WidgetShortcut);
     runPauseAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaPlay), "Run", this, &OpenedGameRunner::actionRunPause, Qt::Key_Space);
     runToEndAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaSkipForward), "Run to End", this, &OpenedGameRunner::actionRunToEnd);
     returnToReachedAction = runMenu->addAction("Return to Reached", this, &OpenedGameRunner::actionReturnToReached);
@@ -395,7 +412,7 @@ void OpenedGameRunner::setupUi()
     stepAction->setEnabled(canContinue);
     runPauseAction->setEnabled(canContinue);
     runToEndAction->setEnabled(canContinue);
-    returnToReachedAction->setEnabled(!atEnd && !isClean);
+    returnToReachedAction->setEnabled(boardModel->undoStackCanRestoreToClean());
 }
 
 void OpenedGameRunner::readFile(QTextStream &ts)
