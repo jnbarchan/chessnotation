@@ -62,11 +62,11 @@ const QString MainWindow::appRootPath()
     {
         // look relative to where the *executable* directory is
         // if that is the right directory return that (i.e. application has been deployed)
-        // if not assume it is the development "build" directory and return "../chessnotation" from there
+        // if not assume it is the development "build" directory and return "../.." from there
         QDir dir(QCoreApplication::applicationDirPath());
         if (dir.exists("images") && dir.exists("samplegames"))
             _appRootPath = dir.absolutePath();
-        else if (dir.cd("../chessnotation"))
+        else if (dir.cd("../.."))
             if (dir.exists("images") && dir.exists("samplegames"))
                 _appRootPath = dir.absolutePath();
     }
@@ -383,8 +383,8 @@ void OpenedGameRunner::setupUi()
     // setup the "Play Opened Game" submenu
     QStyle &style(*runMenu->style());
     restartAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaSkipBackward), "Restart", this, &OpenedGameRunner::actionRestart);
-    stepAction = runMenu->addAction(style.standardIcon(QStyle::SP_ArrowForward), "Step", this, &OpenedGameRunner::actionStep, Qt::Key_Return);
-    runPauseAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaPlay), "Run", this, &OpenedGameRunner::actionRunPause, Qt::Key_Space);
+    stepAction = runMenu->addAction(style.standardIcon(QStyle::SP_ArrowForward), "Step", Qt::Key_Return, this, &OpenedGameRunner::actionStep);
+    runPauseAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaPlay), "Run", Qt::Key_Space, this, &OpenedGameRunner::actionRunPause);
     runToEndAction = runMenu->addAction(style.standardIcon(QStyle::SP_MediaSkipForward), "Run to End", this, &OpenedGameRunner::actionRunToEnd);
     returnToReachedAction = runMenu->addAction("Return to Reached", this, &OpenedGameRunner::actionReturnToReached);
     // and the corresponding buttons in `runButtonsFrame`

@@ -932,7 +932,7 @@ bool MoveParser::parseFullPieceSpecifier(const QString &text, QString &preQualif
         }
         preQualifier += pieceName;
         pieceName = ch;
-        if (ch.toUpper() == "K" && i + 1 < text.length() && text.at(i + 1).toLower() == 't')
+        if (ch.toUpper() == 'K' && i + 1 < text.length() && text.at(i + 1).toLower() == 't')
             pieceName += text.at(++i);
     }
     return parsePieceName(pieceName, name);
